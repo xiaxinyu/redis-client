@@ -1,5 +1,6 @@
 package com.xiaxinyu.redis.client.api;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.RedisStringCommands;
 import org.springframework.data.redis.connection.ReturnType;
 import org.springframework.data.redis.core.RedisCallback;
@@ -19,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 @Slf4j
 public class RedisLock {
-    @Resource
+    @Autowired
     private RedisTemplate redisTemplate;
 
     public static final String UNLOCK_LUA;
@@ -77,7 +78,7 @@ public class RedisLock {
      * @param lockKey
      * @return
      */
-    public String get(String lockKey) {
+    public String getLock(String lockKey) {
         try {
             RedisCallback<String> callback = (connection) -> {
                 return new String(connection.get(lockKey.getBytes()), Charset.forName("UTF-8"));
