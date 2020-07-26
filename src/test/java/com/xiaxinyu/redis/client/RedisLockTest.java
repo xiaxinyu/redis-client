@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 @RunWith(SpringRunner.class)
@@ -42,5 +44,22 @@ public class RedisLockTest {
         String localKey = "summer";
         String requestId = String.format("%s-%s", localKey, "001");
         redisLock.releaseLock(localKey, requestId);
+    }
+
+    @Test
+    public void test_lock4_tryLock_with_5_threads() throws InterruptedException {
+        String localKey = "summer";
+        String requestId = String.format("%s-%s", localKey, "001");
+
+        ExecutorService executorService = Executors.newFixedThreadPool(5);
+        for (int i = 0; i < 5; i++) {
+            executorService.submit(() -> {
+                Thread thread = Thread.currentThread();
+                boolean flag = redisLock.tryLock(localKey, requestId, 100, TimeUnit.SECONDS);
+                log.info("ThreadName={}, tryLock={}", thread.getName(), flag);
+            });
+        }
+
+        Thread.sleep(100000);
     }
 }
