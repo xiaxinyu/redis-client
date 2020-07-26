@@ -1,11 +1,13 @@
 package com.xiaxinyu.redis.client.api;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.Date;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -29,6 +31,16 @@ public class RedisAPI {
      * 不设置过期时长
      */
     public static final long NOT_EXPIRE = -1;
+
+    /**
+     * 锁名称
+     */
+    public static final String LOCK_PREFIX = "redis_lock";
+
+    /**
+     * 加锁失效时间，毫秒ms
+     */
+    public static final int LOCK_EXPIRE = 300;
 
 
     public boolean hasKey(String key) {
@@ -124,5 +136,31 @@ public class RedisAPI {
      */
     public void persistKey(String key) {
         redisTemplate.persist(key);
+    }
+
+    public boolean lock(String key) {
+        String lock = LOCK_PREFIX + key;
+
+        // 利用lambda表达式
+        return (Boolean) redisTemplate.execute((RedisCallback) connection -> {
+            long expireAt = System.currentTimeMillis() + LOCK_EXPIRE + 1;
+            Boolean acquire = connection.setNX(lock.getBytes(), String.valueOf(expireAt).getBytes());
+
+            if (acquire) {
+                return true;
+            } else {
+                byte[] value = connection.get(lock.getBytes());
+                if (Objects.nonNull(value) && value.length > 0) {
+                    long expireTime = Long.parseLong(new String(value));
+                    // 如果锁已经过期
+                    if (expireTime < System.currentTimeMillis()) {
+                        // 重新加锁，防止死锁
+                        byte[] oldValue = connection.getSet(lock.getBytes(), String.valueOf(System.currentTimeMillis() + LOCK_EXPIRE + 1).getBytes());
+                        return Long.parseLong(new String(oldValue)) < System.currentTimeMillis();
+                    }
+                }
+            }
+            return false;
+        });
     }
 }
